@@ -14,7 +14,7 @@ variable "app" {
   default = {
     name         = "compliance" # The name of the application
     stage        = "dev" # The stage of the application
-    version      = "0.0.1" # The version of the application
+    version      = "0.0.6" # The version of the application
     api_hostname = "testing.banyan.computer" # The lowest level hostname for the application
   }
 }

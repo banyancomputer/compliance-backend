@@ -1,5 +1,6 @@
 /* Backend Lambda for reading and writing to RDS */
 resource "aws_lambda_function" "lambda" {
+    depends_on = [null_resource.ecr]
     # Dynamically generated name
     function_name = join("-", [var.app.name, "lambda", random_string.deploy_id.result])
     # Pull the latest version of the lambda function from ECR

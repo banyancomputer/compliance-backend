@@ -3,6 +3,20 @@ resource "aws_ecr_repository" "ecr" {
   name                 = join("-", [var.app.name, "ecr"])
   image_tag_mutability = "MUTABLE"
 
+  tags = {
+    project = var.app.name
+    latest  = var.app.version
+    Name    = join("-", [var.app.name, "ecr"])
+  }
+}
+
+resource "null_resource" "ecr" {
+  triggers = {
+    app_version = var.app.version
+  }
+
+  depends_on = [aws_ecr_repository.ecr]
+
   provisioner "local-exec" {
     command = <<-EOT
       ansible-playbook \
@@ -13,10 +27,5 @@ resource "aws_ecr_repository" "ecr" {
         -e app_version=${var.app.version} \
         ../ansible/image-build.yml \
     EOT
-  }
-
-  tags = {
-    project = var.app.name
-    Name    = join("-", [var.app.name, "ecr"])
   }
 }
