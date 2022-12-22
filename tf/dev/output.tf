@@ -4,8 +4,9 @@ output "deploy_id" {
     depends_on = [random_string.deploy_id]
 }
 # Lambda base URL here
-output "lambda-base-url" {
-    value = aws_api_gateway_deployment.api-gateway.invoke_url
+output "lambda_base_url" {
+    description = "The base URL of the Lambda function"
+    value = module.service.api_endpoint
 }
 
 # Cloudfront base URL here

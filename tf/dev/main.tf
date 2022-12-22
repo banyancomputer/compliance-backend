@@ -16,8 +16,24 @@ terraform {
 provider "aws" {
   region = var.aws_region
 }
+
+module "service" {
+  source = "../modules/service"
+
+  aws_region = var.aws_region
+  deploy_id  = random_string.deploy_id.result
+  app = {
+    name = "compliance"
+    stage = "dev"
+    version = "0.0.0"
+    # These two values should be referenced from the result of the build pipeline
+    static_url = ""
+    ecr_url = "288251279596.dkr.ecr.us-east-2.amazonaws.com/compliance-ecr"
+  }
+
+  # Default RDS configuration is fine for now
+}
 # Who's launching all this Infra
-data "aws_caller_identity" "current" {}
 ## Get the Available AZs
 #data "aws_availability_zones" "available" {
 #  state = "available"

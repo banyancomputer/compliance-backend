@@ -1,0 +1,1 @@
+/* S# for static Django Assets here */

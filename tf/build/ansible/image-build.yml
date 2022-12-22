@@ -8,14 +8,14 @@
   - name: Build Image
     command:
       chdir: "{{ docker_dir }}"
-      cmd: docker build -t  {{ project_name }}-ecr .
+      cmd: docker build -t  {{ app_name }}-ecr .
     register: image_build
   - name: Tag Image
-    command: docker tag {{ project_name }}-ecr:latest {{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/{{ project_name }}-ecr:{{ app_version }}
+    command: docker tag {{ app_name }}-ecr:latest {{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/{{ app_name }}-ecr:{{ app_version }}
     register: image_tag
   - name: Push Image to ECR
     command:
-      cmd: docker push {{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/{{ project_name }}-ecr:{{ app_version }}
+      cmd: docker push {{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/{{ app_name }}-ecr:{{ app_version }}
     register: image_push
     until: image_push is succeeded
 

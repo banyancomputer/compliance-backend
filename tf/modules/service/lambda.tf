@@ -1,21 +1,31 @@
 /* Backend Lambda for reading and writing to RDS */
 resource "aws_lambda_function" "lambda" {
-    depends_on = [null_resource.ecr]
     # Dynamically generated name
-    function_name = join("-", [var.app.name, "lambda", random_string.deploy_id.result])
+    function_name = join("-", [var.app.name, "lambda", var.deploy_id])
     # Pull the latest version of the lambda function from ECR
-    image_uri = "${aws_ecr_repository.ecr.repository_url}:${var.app.version}"
+    image_uri = "${var.app.ecr_url}:${var.app.version}"
     package_type = "Image"
     # SEt the role for the lambda function
-    role = aws_iam_role.lambda-exec.arn
+    role = aws_iam_role.lambda_exec.arn
+
+#    environment {
+#        variables = {
+#            # TODO: Set the environment variables for the lambda function
+#            # Database connection goes here
+#            # Static asset bucket goes here
+#        }
+#    }
+
     tags = {
-        Name = join("-", [var.app.name, "rds-app", random_string.deploy_id.result])
+        deploy_id = var.deploy_id
+        project = var.app.name
+        Name = join("-", [var.app.name, "lambda", var.deploy_id])
     }
 }
 
 /* IAM Role for executing Lambda */
-resource "aws_iam_role" "lambda-exec" {
-    name = join("-", [var.app.name, "lambda-exec-role", random_string.deploy_id.result])
+resource "aws_iam_role" "lambda_exec" {
+    name = join("-", [var.app.name, "lambda-exec-role", var.deploy_id])
     # "I can execute Lambda functions" role policy
     assume_role_policy = jsonencode({
         Version = "2012-10-17"
@@ -30,9 +40,9 @@ resource "aws_iam_role" "lambda-exec" {
         ]
     })
     tags = {
-        deployment_id = random_string.deploy_id.result
+        deployment_id = var.deploy_id
         project = var.app.name
-        name = join("-", [var.app.name, "lambda-exec-role", random_string.deploy_id.result])
+        name = join("-", [var.app.name, "lambda-exec-role", var.deploy_id])
     }
 }
 
@@ -45,5 +55,5 @@ resource "aws_lambda_permission" "api-gateway" {
 
     # The /*/* portion grants access from any method on any resource
     # within the API Gateway "REST API".
-    source_arn = aws_api_gateway_rest_api.api-gateway.execution_arn
+    source_arn = "${aws_api_gateway_rest_api.api_gateway.execution_arn}/*/*"
 }
