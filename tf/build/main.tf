@@ -16,7 +16,7 @@ provider "aws" {
 module "build" {
   source = "../modules/build"
   app_name = "compliance"
-  app_version = "0.0.0"
+  app_version = "0.0.1"
   aws_region = var.aws_region
   docker_path = "../docker"
   playbook_path = "./ansible/image-build.yml"
