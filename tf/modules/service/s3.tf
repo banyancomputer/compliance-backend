@@ -19,7 +19,10 @@ resource "aws_iam_policy" "s3-policy" {
     "Statement" : [
       {
         "Effect" : "Allow",
-        "Action" : "s3:*",
+        "Action" : [
+          "s3:Get*",
+          "s3:List*"
+        ],
         "Resource" : "*"
       }
     ]
