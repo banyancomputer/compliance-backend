@@ -18,6 +18,8 @@ resource "aws_api_gateway_deployment" "api_gateway" {
 /* All requests to the API gateway need to match a configured resource ini order to be handled */
 
 /* Resource for our Lambda */
+
+// We just need one resource for the entire Lambda. It's handler should be able to handle all requests.
 resource "aws_api_gateway_resource" "lambda" {
   rest_api_id = aws_api_gateway_rest_api.api_gateway.id
   parent_id   = aws_api_gateway_rest_api.api_gateway.root_resource_id
@@ -26,27 +28,30 @@ resource "aws_api_gateway_resource" "lambda" {
 
 /* Resources for our S3 bucket */
 
+// We need a root resource for the S3 bucket
 resource "aws_api_gateway_resource" "s3" {
   rest_api_id = aws_api_gateway_rest_api.api_gateway.id
   parent_id   = aws_api_gateway_rest_api.api_gateway.root_resource_id
   path_part   = "s3"
 }
 
-resource "aws_api_gateway_resource" "s3-folder" {
+// We need a resource under the S3 bucket root resource for each folder we want to serve
+resource "aws_api_gateway_resource" "s3_folder" {
   rest_api_id = aws_api_gateway_rest_api.api_gateway.id
   parent_id   = aws_api_gateway_resource.s3.id
   path_part   = "{folder}"
 }
 
-resource "aws_api_gateway_resource" "s3-item" {
+// We need a resource under the S3 bucket folder resource for each file we want to serve
+resource "aws_api_gateway_resource" "s3_item" {
   rest_api_id = aws_api_gateway_rest_api.api_gateway.id
-  parent_id   = aws_api_gateway_resource.s3-folder.id
+  parent_id   = aws_api_gateway_resource.s3_folder.id
   path_part   = "{item}"
 }
 
 /* All methods need to route to a method */
 
-/* Method for the lambda resource. */
+// We need a method for the lambda resource
 resource "aws_api_gateway_method" "lambda" {
   rest_api_id   = aws_api_gateway_rest_api.api_gateway.id
   resource_id   = aws_api_gateway_resource.lambda.id
@@ -54,7 +59,7 @@ resource "aws_api_gateway_method" "lambda" {
   authorization = "NONE"
 }
 
-/* Method for the S3 folder resource. */
+// We need a method for the S3 bucket resource
 resource "aws_api_gateway_method" "s3" {
   rest_api_id   = aws_api_gateway_rest_api.api_gateway.id
   resource_id   = aws_api_gateway_resource.s3.id
@@ -62,9 +67,9 @@ resource "aws_api_gateway_method" "s3" {
   authorization = "NONE"
 }
 
-/* Each method needs to be integrated with a Lambda function */
+/* Each method needs to be integrated with some service or invocation */
 
-/* Integration for the api methods */
+// We need an integration for the lambda resource. This will invoke the lambda function
 resource "aws_api_gateway_integration" "lambda" {
   rest_api_id = aws_api_gateway_rest_api.api_gateway.id
   resource_id = aws_api_gateway_method.lambda.resource_id
@@ -74,11 +79,12 @@ resource "aws_api_gateway_integration" "lambda" {
   type                    = "AWS_PROXY"
   uri                     = aws_lambda_function.lambda.invoke_arn
 }
-#
-#/* Integration for the S3 methods */
+
+
+// We need an integration for the S3 bucket resource. This will serve the S3 bucket
 resource "aws_api_gateway_integration" "s3" {
   rest_api_id = aws_api_gateway_rest_api.api_gateway.id
-  resource_id = aws_api_gateway_method.s3.resource_id
+  resource_id = aws_api_gateway_resource.s3.id
   http_method = aws_api_gateway_method.s3.http_method
 
   integration_http_method = "GET"
@@ -88,9 +94,58 @@ resource "aws_api_gateway_integration" "s3" {
   credentials = aws_iam_role.s3-role.arn
 }
 
-resource "aws_api_gateway_method_response" "method_response_200" {
+/* We need method responses for each method so our API Gateway knows what to return to the client */
+
+// We need method responses for the lambda method
+
+// 200 response
+resource "aws_api_gateway_method_response" "lambda_response_200" {
+  depends_on = [aws_api_gateway_integration.lambda]
+
   rest_api_id = aws_api_gateway_rest_api.api_gateway.id
-  resource_id = aws_api_gateway_rest_api.api_gateway.root_resource_id
+  resource_id = aws_api_gateway_resource.lambda.id
+  http_method = aws_api_gateway_method.lambda.http_method
+  status_code = "200"
+
+  response_parameters = {
+    "method.response.header.Timestamp"      = true
+    "method.response.header.Content-Length" = true
+    "method.response.header.Content-Type"   = true
+  }
+
+  response_models = {
+    "application/json" = "Empty"
+  }
+}
+
+// 400 response
+resource "aws_api_gateway_method_response" "lambda_response_400" {
+  depends_on = [aws_api_gateway_integration.lambda]
+
+  rest_api_id = aws_api_gateway_rest_api.api_gateway.id
+  resource_id = aws_api_gateway_resource.lambda.id
+  http_method = aws_api_gateway_method.lambda.http_method
+  status_code = "400"
+}
+
+// 500 response
+resource "aws_api_gateway_method_response" "lambda_response_500" {
+  depends_on = [aws_api_gateway_integration.lambda]
+
+  rest_api_id = aws_api_gateway_rest_api.api_gateway.id
+  resource_id = aws_api_gateway_resource.lambda.id
+  http_method = aws_api_gateway_method.lambda.http_method
+  status_code = "500"
+}
+
+// We need method responses for the S3 bucket method
+
+// 200 response
+resource "aws_api_gateway_method_response" "s3_response_200" {
+  depends_on = [aws_api_gateway_integration.s3]
+
+  rest_api_id = aws_api_gateway_rest_api.api_gateway.id
+  resource_id = aws_api_gateway_resource.s3.id
   http_method = aws_api_gateway_method.s3.http_method
   status_code = "200"
 
@@ -105,31 +160,84 @@ resource "aws_api_gateway_method_response" "method_response_200" {
   }
 }
 
-resource "aws_api_gateway_method_response" "method_response_400" {
+// 400 response
+resource "aws_api_gateway_method_response" "s3_response_400" {
   depends_on = [aws_api_gateway_integration.s3]
 
   rest_api_id = aws_api_gateway_rest_api.api_gateway.id
-  resource_id = aws_api_gateway_rest_api.api_gateway.root_resource_id
+  resource_id = aws_api_gateway_resource.s3.id
   http_method = aws_api_gateway_method.s3.http_method
   status_code = "400"
 }
 
-resource "aws_api_gateway_method_response" "method_response_500" {
+// 500 response
+resource "aws_api_gateway_method_response" "s3_response_500" {
   depends_on = [aws_api_gateway_integration.s3]
 
   rest_api_id = aws_api_gateway_rest_api.api_gateway.id
-  resource_id = aws_api_gateway_rest_api.api_gateway.root_resource_id
+  resource_id = aws_api_gateway_resource.s3.id
   http_method = aws_api_gateway_method.s3.http_method
   status_code = "500"
 }
 
-resource "aws_api_gateway_integration_response" "integration_response_200" {
+/* We need to define the response models for each integration response from our underlying services */
+
+// We need integration responses for the lambda integration
+
+// 200 response
+resource "aws_api_gateway_integration_response" "lambda_response_200" {
+  depends_on = [aws_api_gateway_integration.lambda]
+
+  rest_api_id = aws_api_gateway_rest_api.api_gateway.id
+  resource_id = aws_api_gateway_resource.lambda.id
+  http_method = aws_api_gateway_method.lambda.http_method
+  status_code = aws_api_gateway_method_response.lambda_response_200.status_code
+
+  response_parameters = {
+    "method.response.header.Timestamp"      = "integration.response.header.Timestamp"
+    "method.response.header.Content-Length" = "integration.response.header.Content-Length"
+    "method.response.header.Content-Type"   = "integration.response.header.Content-Type"
+  }
+
+  response_templates = {
+    "application/json" = ""
+  }
+}
+
+// 400 response
+resource "aws_api_gateway_integration_response" "lambda_response_400" {
+  depends_on = [aws_api_gateway_integration.lambda]
+
+  rest_api_id = aws_api_gateway_rest_api.api_gateway.id
+  resource_id = aws_api_gateway_resource.lambda.id
+  http_method = aws_api_gateway_method.lambda.http_method
+  status_code = aws_api_gateway_method_response.lambda_response_400.status_code
+
+  selection_pattern = "4\\d{2}"
+}
+
+// 500 response
+resource "aws_api_gateway_integration_response" "lambda_response_500" {
+  depends_on = [aws_api_gateway_integration.lambda]
+
+  rest_api_id = aws_api_gateway_rest_api.api_gateway.id
+  resource_id = aws_api_gateway_resource.lambda.id
+  http_method = aws_api_gateway_method.lambda.http_method
+  status_code = aws_api_gateway_method_response.lambda_response_500.status_code
+
+  selection_pattern = "5\\d{2}"
+}
+
+// We need integration responses for the S3 bucket integration
+
+// 200 response
+resource "aws_api_gateway_integration_response" "s3_response_200" {
   depends_on = [aws_api_gateway_integration.s3]
 
   rest_api_id = aws_api_gateway_rest_api.api_gateway.id
-  resource_id = aws_api_gateway_rest_api.api_gateway.root_resource_id
+  resource_id = aws_api_gateway_resource.s3.id
   http_method = aws_api_gateway_method.s3.http_method
-  status_code = aws_api_gateway_method_response.method_response_200.status_code
+  status_code = aws_api_gateway_method_response.s3_response_200.status_code
 
   response_parameters = {
     "method.response.header.Timestamp"      = "integration.response.header.Date"
@@ -138,24 +246,26 @@ resource "aws_api_gateway_integration_response" "integration_response_200" {
   }
 }
 
-resource "aws_api_gateway_integration_response" "integration_response_400" {
+// 400 response
+resource "aws_api_gateway_integration_response" "s3_response_400" {
   depends_on = [aws_api_gateway_integration.s3]
 
   rest_api_id = aws_api_gateway_rest_api.api_gateway.id
-  resource_id = aws_api_gateway_rest_api.api_gateway.root_resource_id
+  resource_id = aws_api_gateway_resource.s3.id
   http_method = aws_api_gateway_method.s3.http_method
-  status_code = aws_api_gateway_method_response.method_response_400.status_code
+  status_code = aws_api_gateway_method_response.s3_response_400.status_code
 
   selection_pattern = "4\\d{2}"
 }
 
-resource "aws_api_gateway_integration_response" "integration_response_500" {
+// 500 response
+resource "aws_api_gateway_integration_response" "s3_response_500" {
   depends_on = [aws_api_gateway_integration.s3]
 
   rest_api_id = aws_api_gateway_rest_api.api_gateway.id
-  resource_id = aws_api_gateway_rest_api.api_gateway.root_resource_id
+  resource_id = aws_api_gateway_resource.s3.id
   http_method = aws_api_gateway_method.s3.http_method
-  status_code = aws_api_gateway_method_response.method_response_500.status_code
+  status_code = aws_api_gateway_method_response.s3_response_500.status_code
 
   selection_pattern = "5\\d{2}"
 }
