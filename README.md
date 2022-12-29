@@ -19,7 +19,6 @@ Repository Structure
   - `deploy` - Deploy app to ECS wit necessary infrastructure
     -  `dev` - Deploys app in dev environment 
   - `modules` - Terraform modules for infrastructure
-    - `build` - Build app and deploy assets to ECR + S3
     - `service` - Deploy app as a cloud service:
       - API Gateway
       - Django Lambda

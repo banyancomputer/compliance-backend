@@ -7,7 +7,7 @@
     register: ecr_login
   - name: Build Image
     command:
-      chdir: "{{ docker_dir }}"
+      chdir: ../docker
       cmd: docker build -t  {{ app_name }}-ecr .
     register: image_build
   - name: Tag Image

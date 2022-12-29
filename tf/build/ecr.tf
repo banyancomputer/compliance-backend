@@ -26,10 +26,9 @@ resource "null_resource" "ecr" {
       ansible-playbook \
         -e aws_region=${var.aws_region} \
         -e aws_account_id=${data.aws_caller_identity.current.account_id} \
-        -e docker_dir=${var.docker_path} \
         -e app_name=${var.app_name} \
         -e app_version=${var.app_version} \
-        ${var.playbook_path} \
+        ./ansible/image-build.yml \
     EOT
   }
 }
