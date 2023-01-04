@@ -1,5 +1,6 @@
 from django.test import TestCase
-from .models import ToDoList, Item
+
+from .models import Item, ToDoList
 
 # Create your tests here.
 

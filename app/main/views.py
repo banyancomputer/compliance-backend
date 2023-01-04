@@ -1,6 +1,8 @@
-from django.shortcuts import render
 from django.http import HttpResponse
-from .models import ToDoList, Item
+from django.shortcuts import render
+
+from .models import Item, ToDoList
+
 # Create your views here - serves HTTP requests
 
 

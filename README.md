@@ -28,7 +28,7 @@ All configurations are done in `settings.py`
 
 1. How do I run this?
 
-To run this on your local machine, cd into `backend` and run `python3 manage.py runserver`
+To run this on your local machine, cd into `backend` and run `python3 manage.py runserver`.
 
 2. How do I format queries to the app?
 
