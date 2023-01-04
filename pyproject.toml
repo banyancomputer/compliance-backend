@@ -3,7 +3,7 @@ requires = ["poetry-core", "setuptools"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
-name = "veridise-toolbox"
+name = "compliance backend"
 version = "0.1.0"
 description = ""
 authors = ["Xiangan He <xiangan@banyan.computer>"]
