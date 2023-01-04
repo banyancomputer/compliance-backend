@@ -21,7 +21,6 @@ resource "aws_iam_policy" "s3-policy" {
         "Effect" : "Allow",
         "Action" : [
           "s3:Get*",
-          "s3:List*"
         ],
         "Resource" : "*"
       }

@@ -1,15 +1,17 @@
-/* API Gateway containing access to API resources */
+/* api_gateway.tf: Expose our Lambda and S3 resources through a single API */
+
+# API Gateway containing access to API resources
 resource "aws_api_gateway_rest_api" "api_gateway" {
   name               = join("-", [var.app.name, var.app.stage, "api-gateway", var.deploy_id])
   description        = "Filecoin Compliance API Gateway"
   binary_media_types = ["*/*"]
 }
 
-/* API deployment */
+# API Gateway deployment
 resource "aws_api_gateway_deployment" "api_gateway" {
   depends_on = [
     aws_api_gateway_integration.lambda_api,
-    aws_api_gateway_integration.s3_document,
+    aws_api_gateway_integration.s3_cert,
   ]
 
   lifecycle {
@@ -20,109 +22,107 @@ resource "aws_api_gateway_deployment" "api_gateway" {
   stage_name  = var.app.stage
 }
 
-/* All requests to the API gateway need to match a configured resource ini order to be handled */
+/* All requests to the API gateway need to match a path to a
+ * -> resource
+ * -> method
+ * -> integration
+ * in order to be handled by the gateway */
 
-/* API Gateway resource for our V0 API */
+/* V0 API */
 
+# V0 top-level resource
 resource "aws_api_gateway_resource" "v0" {
   rest_api_id = aws_api_gateway_rest_api.api_gateway.id
   parent_id   = aws_api_gateway_rest_api.api_gateway.root_resource_id
   path_part   = "v0"
 }
 
-/* V0 Resources: */
+/* V0 Resources */
 
-/* API Gateway resource for our V0 api */
-
-// We just need one resource for the entire API. The api function will handle the routing.
+# 'API' resources: integrates with our django Lambdas
+# 'API' top-level resource. This is the top-level resource for requests to our lambda proxy
 resource "aws_api_gateway_resource" "api" {
   rest_api_id = aws_api_gateway_rest_api.api_gateway.id
   parent_id   = aws_api_gateway_resource.v0.id
   path_part   = "api"
 }
+# `API Proxy` resource. This is the resource for requests to our lambda
+resource "aws_api_gateway_resource" "api_proxy" {
+  rest_api_id = aws_api_gateway_rest_api.api_gateway.id
+  parent_id   = aws_api_gateway_resource.api.id
+  path_part   = "{proxy+}"
+}
 
-/* API Gateway resource for our V0 certification buckets */
-
-// We need a parent resource for our certification bucket
+# 'CERT' resource: serves files from S3 bucket
+# We need a parent resource for our certification bucket
 resource "aws_api_gateway_resource" "cert" {
   rest_api_id = aws_api_gateway_rest_api.api_gateway.id
   parent_id   = aws_api_gateway_resource.v0.id
   path_part   = "cert"
 }
 
-// We route the request to the certification bucket and serve the document
-resource "aws_api_gateway_resource" "document" {
-  rest_api_id = aws_api_gateway_rest_api.api_gateway.id
-  parent_id   = aws_api_gateway_resource.cert.id
-  path_part   = "{document}"
-}
+/* V0 Methods */
 
-/* All methods need to route to a method */
-
-// We need a method for the api resource
-resource "aws_api_gateway_method" "api" {
+# `API Proxy` method. This defines a method to route requests to our lambda
+resource "aws_api_gateway_method" "api_proxy" {
   rest_api_id   = aws_api_gateway_rest_api.api_gateway.id
-  resource_id   = aws_api_gateway_resource.api.id
-  http_method   = "POST"
+  resource_id   = aws_api_gateway_resource.api_proxy.id
+  http_method   = "ANY"
   authorization = "NONE"
 }
-
-// We need a method for the S3 bucket resource
-resource "aws_api_gateway_method" "document" {
+# `CERT` method. This defines a method to route requests to our S3 bucket
+resource "aws_api_gateway_method" "cert" {
   rest_api_id   = aws_api_gateway_rest_api.api_gateway.id
-  resource_id   = aws_api_gateway_resource.document.id
+  resource_id   = aws_api_gateway_resource.cert.id
   http_method   = "GET"
   authorization = "NONE"
 
+  # Requests to specific paths in the S3 bucket should be formatted in query params
   request_parameters = {
-    "method.request.querystring.document" = true
+    "method.request.querystring.doc" = true
   }
 }
 
-/* Each method needs to be integrated with some service or invocation */
+/* V0 Integrations */
 
-// We need an integration for the api resource. This integration will invoke the lambda function
+# `API Proxy` integration. This connects our API method to our Lambda
 resource "aws_api_gateway_integration" "lambda_api" {
   rest_api_id = aws_api_gateway_rest_api.api_gateway.id
-  resource_id = aws_api_gateway_method.api.resource_id
-  http_method = aws_api_gateway_method.api.http_method
+  resource_id = aws_api_gateway_method.api_proxy.resource_id
+  http_method = aws_api_gateway_method.api_proxy.http_method
 
-  integration_http_method = "POST"
   type                    = "AWS_PROXY"
+  integration_http_method = "ANY"
   uri                     = aws_lambda_function.lambda.invoke_arn
 }
-
-
-// We need an integration for the cert resource. This will serve the contents of the S3 bucket holding the certs
-resource "aws_api_gateway_integration" "s3_document" {
+# `CERT` integration. This connects our CERT method to our S3 bucket
+resource "aws_api_gateway_integration" "s3_cert" {
   rest_api_id = aws_api_gateway_rest_api.api_gateway.id
-  resource_id = aws_api_gateway_resource.document.id
-  http_method = aws_api_gateway_method.document.http_method
-
-  /* Set the path override to the {s3_bucket_name} / document name */
+  resource_id = aws_api_gateway_resource.cert.id
+  http_method = aws_api_gateway_method.cert.http_method
 
   type                    = "AWS"
   integration_http_method = "GET"
   uri                     = "arn:aws:apigateway:${var.aws_region}:s3:path/${aws_s3_bucket.s3.id}/{object}"
 
+  # Integration requests to the S3 bucket should be formatted in query params
   request_parameters = {
-    "integration.request.path.object" = "method.request.querystring.document"
+    "integration.request.path.object" = "method.request.querystring.doc"
   }
 
+  # This integration has access to the S3 bucket
   credentials = aws_iam_role.s3-role.arn
 }
 
-/* We need method responses for each method so our API Gateway knows what to return to the client */
+/* V0 Method Responses */
 
-// We need method responses for the api method
-
-// 200 response
+# API 200 response
 resource "aws_api_gateway_method_response" "api_response_200" {
   depends_on = [aws_api_gateway_integration.lambda_api]
 
   rest_api_id = aws_api_gateway_rest_api.api_gateway.id
-  resource_id = aws_api_gateway_resource.api.id
-  http_method = aws_api_gateway_method.api.http_method
+  resource_id = aws_api_gateway_resource.api_proxy.id
+  http_method = aws_api_gateway_method.api_proxy.http_method
   status_code = "200"
 
   response_parameters = {
@@ -135,36 +135,31 @@ resource "aws_api_gateway_method_response" "api_response_200" {
     "application/json" = "Empty"
   }
 }
-
-// 400 response
+# API 400 response
 resource "aws_api_gateway_method_response" "api_response_400" {
   depends_on = [aws_api_gateway_integration.lambda_api]
 
   rest_api_id = aws_api_gateway_rest_api.api_gateway.id
-  resource_id = aws_api_gateway_resource.api.id
-  http_method = aws_api_gateway_method.api.http_method
+  resource_id = aws_api_gateway_resource.api_proxy.id
+  http_method = aws_api_gateway_method.api_proxy.http_method
   status_code = "400"
 }
-
-// 500 response
+# API 500 response
 resource "aws_api_gateway_method_response" "api_response_500" {
   depends_on = [aws_api_gateway_integration.lambda_api]
 
   rest_api_id = aws_api_gateway_rest_api.api_gateway.id
-  resource_id = aws_api_gateway_resource.api.id
-  http_method = aws_api_gateway_method.api.http_method
+  resource_id = aws_api_gateway_resource.api_proxy.id
+  http_method = aws_api_gateway_method.api_proxy.http_method
   status_code = "500"
 }
-
-// We need method responses for the cert bucket method
-
-// 200 response
-resource "aws_api_gateway_method_response" "document_response_200" {
-  depends_on = [aws_api_gateway_integration.s3_document]
+# CERT 200 response
+resource "aws_api_gateway_method_response" "cert_response_200" {
+  depends_on = [aws_api_gateway_integration.s3_cert]
 
   rest_api_id = aws_api_gateway_rest_api.api_gateway.id
-  resource_id = aws_api_gateway_resource.document.id
-  http_method = aws_api_gateway_method.document.http_method
+  resource_id = aws_api_gateway_resource.cert.id
+  http_method = aws_api_gateway_method.cert.http_method
   status_code = "200"
 
   response_parameters = {
@@ -177,38 +172,33 @@ resource "aws_api_gateway_method_response" "document_response_200" {
     "application/json" = "Empty"
   }
 }
-
-// 400 response
-resource "aws_api_gateway_method_response" "document_response_400" {
-  depends_on = [aws_api_gateway_integration.s3_document]
+# CERT 400 response
+resource "aws_api_gateway_method_response" "cert_response_400" {
+  depends_on = [aws_api_gateway_integration.s3_cert]
 
   rest_api_id = aws_api_gateway_rest_api.api_gateway.id
-  resource_id = aws_api_gateway_resource.document.id
-  http_method = aws_api_gateway_method.document.http_method
+  resource_id = aws_api_gateway_resource.cert.id
+  http_method = aws_api_gateway_method.cert.http_method
   status_code = "400"
 }
-
-// 500 response
-resource "aws_api_gateway_method_response" "document_response_500" {
-  depends_on = [aws_api_gateway_integration.s3_document]
+# CERT 500 response
+resource "aws_api_gateway_method_response" "cert_response_500" {
+  depends_on = [aws_api_gateway_integration.s3_cert]
 
   rest_api_id = aws_api_gateway_rest_api.api_gateway.id
-  resource_id = aws_api_gateway_resource.document.id
-  http_method = aws_api_gateway_method.document.http_method
+  resource_id = aws_api_gateway_resource.cert.id
+  http_method = aws_api_gateway_method.cert.http_method
   status_code = "500"
 }
 
-/* We need to define the response models for each integration response from our underlying services */
-
-// We need integration responses for the api integration
-
-// 200 response
+/* V0 Integration Responses */
+# API 200 response
 resource "aws_api_gateway_integration_response" "api_response_200" {
   depends_on = [aws_api_gateway_integration.lambda_api]
 
   rest_api_id = aws_api_gateway_rest_api.api_gateway.id
-  resource_id = aws_api_gateway_resource.api.id
-  http_method = aws_api_gateway_method.api.http_method
+  resource_id = aws_api_gateway_resource.api_proxy.id
+  http_method = aws_api_gateway_method.api_proxy.http_method
   status_code = aws_api_gateway_method_response.api_response_200.status_code
 
   response_parameters = {
@@ -221,41 +211,36 @@ resource "aws_api_gateway_integration_response" "api_response_200" {
     "application/json" = ""
   }
 }
-
-// 400 response
+# API 400 response
 resource "aws_api_gateway_integration_response" "api_response_400" {
   depends_on = [aws_api_gateway_integration.lambda_api]
 
   rest_api_id = aws_api_gateway_rest_api.api_gateway.id
-  resource_id = aws_api_gateway_resource.api.id
-  http_method = aws_api_gateway_method.api.http_method
+  resource_id = aws_api_gateway_resource.api_proxy.id
+  http_method = aws_api_gateway_method.api_proxy.http_method
   status_code = aws_api_gateway_method_response.api_response_400.status_code
 
   selection_pattern = "4\\d{2}"
 }
-
-// 500 response
+# API 500 response
 resource "aws_api_gateway_integration_response" "api_response_500" {
   depends_on = [aws_api_gateway_integration.lambda_api]
 
   rest_api_id = aws_api_gateway_rest_api.api_gateway.id
-  resource_id = aws_api_gateway_resource.api.id
-  http_method = aws_api_gateway_method.api.http_method
+  resource_id = aws_api_gateway_resource.api_proxy.id
+  http_method = aws_api_gateway_method.api_proxy.http_method
   status_code = aws_api_gateway_method_response.api_response_500.status_code
 
   selection_pattern = "5\\d{2}"
 }
-
-// We need integration responses for the cert bucket integration
-
-// 200 response
-resource "aws_api_gateway_integration_response" "document_response_200" {
-  depends_on = [aws_api_gateway_integration.s3_document]
+# CERT 200 response
+resource "aws_api_gateway_integration_response" "cert_response_200" {
+  depends_on = [aws_api_gateway_integration.s3_cert]
 
   rest_api_id = aws_api_gateway_rest_api.api_gateway.id
-  resource_id = aws_api_gateway_resource.document.id
-  http_method = aws_api_gateway_method.document.http_method
-  status_code = aws_api_gateway_method_response.document_response_200.status_code
+  resource_id = aws_api_gateway_resource.cert.id
+  http_method = aws_api_gateway_method.cert.http_method
+  status_code = aws_api_gateway_method_response.cert_response_200.status_code
 
   response_parameters = {
     "method.response.header.Timestamp"      = "integration.response.header.Date"
@@ -263,27 +248,27 @@ resource "aws_api_gateway_integration_response" "document_response_200" {
     "method.response.header.Content-Type"   = "integration.response.header.Content-Type"
   }
 }
-
-// 400 response
-resource "aws_api_gateway_integration_response" "document_response_400" {
-  depends_on = [aws_api_gateway_integration.s3_document]
+# CERT 400 response
+resource "aws_api_gateway_integration_response" "cert_response_400" {
+  depends_on = [aws_api_gateway_integration.s3_cert]
 
   rest_api_id = aws_api_gateway_rest_api.api_gateway.id
-  resource_id = aws_api_gateway_resource.document.id
-  http_method = aws_api_gateway_method.document.http_method
-  status_code = aws_api_gateway_method_response.document_response_400.status_code
+  resource_id = aws_api_gateway_resource.cert.id
+  http_method = aws_api_gateway_method.cert.http_method
+  status_code = aws_api_gateway_method_response.cert_response_400.status_code
 
   selection_pattern = "4\\d{2}"
 }
-
-// 500 response
-resource "aws_api_gateway_integration_response" "document_response_500" {
-  depends_on = [aws_api_gateway_integration.s3_document]
+# CERT 500 response
+resource "aws_api_gateway_integration_response" "cert_response_500" {
+  depends_on = [aws_api_gateway_integration.s3_cert]
 
   rest_api_id = aws_api_gateway_rest_api.api_gateway.id
-  resource_id = aws_api_gateway_resource.document.id
-  http_method = aws_api_gateway_method.document.http_method
-  status_code = aws_api_gateway_method_response.document_response_500.status_code
+  resource_id = aws_api_gateway_resource.cert.id
+  http_method = aws_api_gateway_method.cert.http_method
+  status_code = aws_api_gateway_method_response.cert_response_500.status_code
 
   selection_pattern = "5\\d{2}"
 }
+
+

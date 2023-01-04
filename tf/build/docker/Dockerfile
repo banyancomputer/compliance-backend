@@ -6,7 +6,11 @@
 FROM public.ecr.aws/lambda/python:3.8-x86_64
 
 # Copy the file to the working directory
-COPY test.py ${LAMBDA_TASK_ROOT}
+COPY . ${LAMBDA_TASK_ROOT}
+
+# Install dependencies
+RUN yum install -y gcc python27 python27-devel postgresql-devel
+RUN pip3 install -r requirements.txt --target "${LAMBDA_TASK_ROOT}"
 
 CMD [ "test.handler" ]
 
