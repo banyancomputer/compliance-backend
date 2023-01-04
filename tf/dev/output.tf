@@ -8,3 +8,8 @@ output "api_url" {
     description = "The base URL of the Lambda function"
     value = module.service.api_endpoint
 }
+output "rds_password" {
+    description = "The password for the RDS instance"
+    value = var.rds_password
+    sensitive = true
+}

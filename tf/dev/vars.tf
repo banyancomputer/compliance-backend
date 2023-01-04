@@ -55,15 +55,9 @@ variable "private_subnet_cidrs" {
     "10.0.104.0/24",
   ]
 }
-## The username for our RDS instance
-#variable "rds_username" {
-#  description = "The username for our RDS instance"
-#  type        = string
-#  sensitive   = true
-#}
-## The password for our RDS instance
-#variable "rds_password" {
-#  description = "The password for the RDS instance"
-#  type        = string
-#  sensitive   = true
-#}
+# The password for our RDS instance
+variable "rds_password" {
+  description = "The password for the RDS instance"
+  type        = string
+  sensitive   = true
+}
