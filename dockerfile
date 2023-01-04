@@ -1,10 +1,15 @@
-FROM node:17.3.0
-ENV NODE_ENV=production
+# syntax=docker/dockerfile:1
+
+FROM python:3.8-slim-buster
 
 WORKDIR /app
 
-COPY pyproject.toml .
+COPY pyproject.toml pyproject.toml
+
+RUN pip3 install poetry
 
 RUN poetry install
 
-COPY src ./src
+COPY . .
+
+CMD [ "python3", "-m" , "flask", "run", "--host=0.0.0.0"]
