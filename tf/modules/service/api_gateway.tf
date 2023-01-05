@@ -10,7 +10,7 @@ resource "aws_api_gateway_rest_api" "api_gateway" {
 # API Gateway deployment
 resource "aws_api_gateway_deployment" "api_gateway" {
   depends_on = [
-    aws_api_gateway_integration.lambda_api,
+#    aws_api_gateway_integration.lambda_api,
     aws_api_gateway_integration.s3_cert,
   ]
 
@@ -41,17 +41,17 @@ resource "aws_api_gateway_resource" "v0" {
 
 # 'API' resources: integrates with our django Lambdas
 # 'API' top-level resource. This is the top-level resource for requests to our lambda proxy
-resource "aws_api_gateway_resource" "api" {
-  rest_api_id = aws_api_gateway_rest_api.api_gateway.id
-  parent_id   = aws_api_gateway_resource.v0.id
-  path_part   = "api"
-}
-# `API Proxy` resource. This is the resource for requests to our lambda
-resource "aws_api_gateway_resource" "api_proxy" {
-  rest_api_id = aws_api_gateway_rest_api.api_gateway.id
-  parent_id   = aws_api_gateway_resource.api.id
-  path_part   = "{proxy+}"
-}
+#resource "aws_api_gateway_resource" "api" {
+#  rest_api_id = aws_api_gateway_rest_api.api_gateway.id
+#  parent_id   = aws_api_gateway_resource.v0.id
+#  path_part   = "api"
+#}
+## `API Proxy` resource. This is the resource for requests to our lambda
+#resource "aws_api_gateway_resource" "api_proxy" {
+#  rest_api_id = aws_api_gateway_rest_api.api_gateway.id
+#  parent_id   = aws_api_gateway_resource.api.id
+#  path_part   = "{proxy+}"
+#}
 
 # 'CERT' resource: serves files from S3 bucket
 # We need a parent resource for our certification bucket
@@ -64,12 +64,12 @@ resource "aws_api_gateway_resource" "cert" {
 /* V0 Methods */
 
 # `API Proxy` method. This defines a method to route requests to our lambda
-resource "aws_api_gateway_method" "api_proxy" {
-  rest_api_id   = aws_api_gateway_rest_api.api_gateway.id
-  resource_id   = aws_api_gateway_resource.api_proxy.id
-  http_method   = "ANY"
-  authorization = "NONE"
-}
+#resource "aws_api_gateway_method" "api_proxy" {
+#  rest_api_id   = aws_api_gateway_rest_api.api_gateway.id
+#  resource_id   = aws_api_gateway_resource.api_proxy.id
+#  http_method   = "ANY"
+#  authorization = "NONE"
+#}
 # `CERT` method. This defines a method to route requests to our S3 bucket
 resource "aws_api_gateway_method" "cert" {
   rest_api_id   = aws_api_gateway_rest_api.api_gateway.id
@@ -86,15 +86,15 @@ resource "aws_api_gateway_method" "cert" {
 /* V0 Integrations */
 
 # `API Proxy` integration. This connects our API method to our Lambda
-resource "aws_api_gateway_integration" "lambda_api" {
-  rest_api_id = aws_api_gateway_rest_api.api_gateway.id
-  resource_id = aws_api_gateway_method.api_proxy.resource_id
-  http_method = aws_api_gateway_method.api_proxy.http_method
-
-  type                    = "AWS_PROXY"
-  integration_http_method = "ANY"
-  uri                     = aws_lambda_function.lambda.invoke_arn
-}
+#resource "aws_api_gateway_integration" "lambda_api" {
+#  rest_api_id = aws_api_gateway_rest_api.api_gateway.id
+#  resource_id = aws_api_gateway_method.api_proxy.resource_id
+#  http_method = aws_api_gateway_method.api_proxy.http_method
+#
+#  type                    = "AWS_PROXY"
+#  integration_http_method = "ANY"
+#  uri                     = aws_lambda_function.lambda.invoke_arn
+#}
 # `CERT` integration. This connects our CERT method to our S3 bucket
 resource "aws_api_gateway_integration" "s3_cert" {
   rest_api_id = aws_api_gateway_rest_api.api_gateway.id
@@ -117,42 +117,42 @@ resource "aws_api_gateway_integration" "s3_cert" {
 /* V0 Method Responses */
 
 # API 200 response
-resource "aws_api_gateway_method_response" "api_response_200" {
-  depends_on = [aws_api_gateway_integration.lambda_api]
-
-  rest_api_id = aws_api_gateway_rest_api.api_gateway.id
-  resource_id = aws_api_gateway_resource.api_proxy.id
-  http_method = aws_api_gateway_method.api_proxy.http_method
-  status_code = "200"
-
-  response_parameters = {
-    "method.response.header.Timestamp"      = true
-    "method.response.header.Content-Length" = true
-    "method.response.header.Content-Type"   = true
-  }
-
-  response_models = {
-    "application/json" = "Empty"
-  }
-}
-# API 400 response
-resource "aws_api_gateway_method_response" "api_response_400" {
-  depends_on = [aws_api_gateway_integration.lambda_api]
-
-  rest_api_id = aws_api_gateway_rest_api.api_gateway.id
-  resource_id = aws_api_gateway_resource.api_proxy.id
-  http_method = aws_api_gateway_method.api_proxy.http_method
-  status_code = "400"
-}
-# API 500 response
-resource "aws_api_gateway_method_response" "api_response_500" {
-  depends_on = [aws_api_gateway_integration.lambda_api]
-
-  rest_api_id = aws_api_gateway_rest_api.api_gateway.id
-  resource_id = aws_api_gateway_resource.api_proxy.id
-  http_method = aws_api_gateway_method.api_proxy.http_method
-  status_code = "500"
-}
+#resource "aws_api_gateway_method_response" "api_response_200" {
+#  depends_on = [aws_api_gateway_integration.lambda_api]
+#
+#  rest_api_id = aws_api_gateway_rest_api.api_gateway.id
+#  resource_id = aws_api_gateway_resource.api_proxy.id
+#  http_method = aws_api_gateway_method.api_proxy.http_method
+#  status_code = "200"
+#
+#  response_parameters = {
+#    "method.response.header.Timestamp"      = true
+#    "method.response.header.Content-Length" = true
+#    "method.response.header.Content-Type"   = true
+#  }
+#
+#  response_models = {
+#    "application/json" = "Empty"
+#  }
+#}
+## API 400 response
+#resource "aws_api_gateway_method_response" "api_response_400" {
+#  depends_on = [aws_api_gateway_integration.lambda_api]
+#
+#  rest_api_id = aws_api_gateway_rest_api.api_gateway.id
+#  resource_id = aws_api_gateway_resource.api_proxy.id
+#  http_method = aws_api_gateway_method.api_proxy.http_method
+#  status_code = "400"
+#}
+## API 500 response
+#resource "aws_api_gateway_method_response" "api_response_500" {
+#  depends_on = [aws_api_gateway_integration.lambda_api]
+#
+#  rest_api_id = aws_api_gateway_rest_api.api_gateway.id
+#  resource_id = aws_api_gateway_resource.api_proxy.id
+#  http_method = aws_api_gateway_method.api_proxy.http_method
+#  status_code = "500"
+#}
 # CERT 200 response
 resource "aws_api_gateway_method_response" "cert_response_200" {
   depends_on = [aws_api_gateway_integration.s3_cert]
@@ -193,46 +193,46 @@ resource "aws_api_gateway_method_response" "cert_response_500" {
 
 /* V0 Integration Responses */
 # API 200 response
-resource "aws_api_gateway_integration_response" "api_response_200" {
-  depends_on = [aws_api_gateway_integration.lambda_api]
-
-  rest_api_id = aws_api_gateway_rest_api.api_gateway.id
-  resource_id = aws_api_gateway_resource.api_proxy.id
-  http_method = aws_api_gateway_method.api_proxy.http_method
-  status_code = aws_api_gateway_method_response.api_response_200.status_code
-
-  response_parameters = {
-    "method.response.header.Timestamp"      = "integration.response.header.Timestamp"
-    "method.response.header.Content-Length" = "integration.response.header.Content-Length"
-    "method.response.header.Content-Type"   = "integration.response.header.Content-Type"
-  }
-
-  response_templates = {
-    "application/json" = ""
-  }
-}
-# API 400 response
-resource "aws_api_gateway_integration_response" "api_response_400" {
-  depends_on = [aws_api_gateway_integration.lambda_api]
-
-  rest_api_id = aws_api_gateway_rest_api.api_gateway.id
-  resource_id = aws_api_gateway_resource.api_proxy.id
-  http_method = aws_api_gateway_method.api_proxy.http_method
-  status_code = aws_api_gateway_method_response.api_response_400.status_code
-
-  selection_pattern = "4\\d{2}"
-}
-# API 500 response
-resource "aws_api_gateway_integration_response" "api_response_500" {
-  depends_on = [aws_api_gateway_integration.lambda_api]
-
-  rest_api_id = aws_api_gateway_rest_api.api_gateway.id
-  resource_id = aws_api_gateway_resource.api_proxy.id
-  http_method = aws_api_gateway_method.api_proxy.http_method
-  status_code = aws_api_gateway_method_response.api_response_500.status_code
-
-  selection_pattern = "5\\d{2}"
-}
+#resource "aws_api_gateway_integration_response" "api_response_200" {
+#  depends_on = [aws_api_gateway_integration.lambda_api]
+#
+#  rest_api_id = aws_api_gateway_rest_api.api_gateway.id
+#  resource_id = aws_api_gateway_resource.api_proxy.id
+#  http_method = aws_api_gateway_method.api_proxy.http_method
+#  status_code = aws_api_gateway_method_response.api_response_200.status_code
+#
+#  response_parameters = {
+#    "method.response.header.Timestamp"      = "integration.response.header.Timestamp"
+#    "method.response.header.Content-Length" = "integration.response.header.Content-Length"
+#    "method.response.header.Content-Type"   = "integration.response.header.Content-Type"
+#  }
+#
+#  response_templates = {
+#    "application/json" = ""
+#  }
+#}
+## API 400 response
+#resource "aws_api_gateway_integration_response" "api_response_400" {
+#  depends_on = [aws_api_gateway_integration.lambda_api]
+#
+#  rest_api_id = aws_api_gateway_rest_api.api_gateway.id
+#  resource_id = aws_api_gateway_resource.api_proxy.id
+#  http_method = aws_api_gateway_method.api_proxy.http_method
+#  status_code = aws_api_gateway_method_response.api_response_400.status_code
+#
+#  selection_pattern = "4\\d{2}"
+#}
+## API 500 response
+#resource "aws_api_gateway_integration_response" "api_response_500" {
+#  depends_on = [aws_api_gateway_integration.lambda_api]
+#
+#  rest_api_id = aws_api_gateway_rest_api.api_gateway.id
+#  resource_id = aws_api_gateway_resource.api_proxy.id
+#  http_method = aws_api_gateway_method.api_proxy.http_method
+#  status_code = aws_api_gateway_method_response.api_response_500.status_code
+#
+#  selection_pattern = "5\\d{2}"
+#}
 # CERT 200 response
 resource "aws_api_gateway_integration_response" "cert_response_200" {
   depends_on = [aws_api_gateway_integration.s3_cert]

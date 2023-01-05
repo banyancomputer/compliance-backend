@@ -4,7 +4,7 @@
 resource "aws_db_subnet_group" "rds" {
   name        = join("-", [var.app.name, "rds-subnet-group", var.deploy_id])
   description = "Subnet group for our RDS instance"
-  subnet_ids  = var.subnets_config.private_subnets[*] # Neato!
+  subnet_ids  = aws_subnet.private[*].id
   tags        = {
     deployment_id = var.deploy_id
     project       = var.app.name
@@ -15,17 +15,14 @@ resource "aws_db_subnet_group" "rds" {
 resource "aws_security_group" "rds" {
   name        = join("-", [var.app.name, "rds-sg", var.deploy_id])
   description = "Security Group for our RDS instance"
-  vpc_id      = var.vpc_config.vpc_id
+  vpc_id      = aws_vpc.vpc.id
   # Allow inbound traffic from the RDS instance
   ingress {
     from_port   = 5432
     to_port     = 5432
     protocol    = "tcp"
     description = "PostgreSQL"
-    cidr_blocks = [
-      var.vpc_config.cidr_block,
-    ]
-    self = true
+    security_groups = [aws_security_group.ec2.id]
   }
 
   # Allow all outbound traffic.
@@ -34,10 +31,7 @@ resource "aws_security_group" "rds" {
     to_port     = 5432
     protocol    = "tcp"
     description = "PostgreSQL"
-    cidr_blocks = [
-      var.vpc_config.cidr_block,
-    ]
-    self = true
+    security_groups = [aws_security_group.ec2.id]
   }
 
   tags = {
