@@ -20,3 +20,4 @@ What infrastructure does it create?
 What does the django app do?
 1. Allow unauthenticated users to read data through Lambda endpoints
 2. Allow authenticated users to read/write data through Lambda endpoints
+
