@@ -26,16 +26,17 @@ module "service" {
   aws_region = var.aws_region
   deploy_id  = random_string.deploy_id.result
   app = {
-    name = "compliance"
+    name = "compliance-django"
     stage = "dev"
-    version = "0.0.17"
-    # static_url = "compliance-static-assets.s3.amazonaws.com"
-    # These two values should be referenced from the result of the build pipeline
-    ecr_url = "288251279596.dkr.ecr.us-east-2.amazonaws.com/compliance-ecr"
+    version = "0.0.3"
+    ecr_url = "288251279596.dkr.ecr.us-east-2.amazonaws.com/compliance-django-ecr"
   }
   # Default VPC config is fine for now
 
   # Default RDS is fine for Dev
 
   # TODO - Remember to add ansible command for provisioning the ec2 instance
+
+  rds_user = "compliance"
+  rds_password = "changeme"
 }

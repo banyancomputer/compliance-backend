@@ -38,7 +38,17 @@ variable "private_subnet_cidrs" {
     "10.0.102.0/24",
   ]
 }
-
+# The environment for our Django app
+variable "django_env" {
+  description = "The environment for our Django app"
+  type        = map(string)
+  default     = {
+    secret_key    = "secret_key"
+    debug         = "True"
+    allowed_hosts = "*"
+    sql_engine    = "django.db.backends.postgresql"
+  }
+}
 # The settings for our RDS database
 variable "rds_config" {
   description = "Service Configuration for RDS"
@@ -47,25 +57,33 @@ variable "rds_config" {
   default     = {
     allocated_storage   = "5"
     instance_class      = "db.t3.micro"
-    skip_final_snapshot = "true"
+    engine              = "postgres"
+    engine_version      = "14"
     db_name             = "compliance"
+    skip_final_snapshot = "true"
   }
 }
+# The configuration for our EC2 instance
 variable "ec2_config" {
   description = "Service Configuration for EC2"
   type        = map(any)
   # Set config values as strings and convert to the appropriate type.
   default     = {
-    instance_type       = "t3.micro"
-    monitoring          = "true"
-    volume_type         = "gp2"
-    volume_size         = "20" # in GB. The Size needed for the AMI
-    ansible_playbook    = "./ec2-setup.yml"
+    instance_type    = "t3.micro"
+    monitoring       = "true"
+    volume_type      = "gp2"
+    volume_size      = "20" # in GB. The Size needed for the AMI
+    ansible_playbook = "ec2-setup.yml"
   }
+}
+# The user for our RDS database
+variable "rds_user" {
+  description = "The user for our RDS database"
+  type        = string
+  default     = "compliance"
 }
 # The key for our RDS database
 variable "rds_password" {
   description = "The key for our RDS database"
-  sensitive   = true
-  default     = "changeme"
+  type        = string
 }

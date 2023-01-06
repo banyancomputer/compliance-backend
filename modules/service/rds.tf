@@ -47,20 +47,25 @@ resource "aws_security_group" "rds" {
 }
 # RDS instance
 resource "aws_db_instance" "rds" {
+  # The name of our RDS instance
   identifier             = join("-", [var.app.name, "rds", var.deploy_id])
-  allocated_storage      = tonumber(var.rds_config.allocated_storage)
-  engine                 = "postgres"
-  engine_version         = 14
-  instance_class         = var.rds_config.instance_class
-  db_name                = var.rds_config.db_name
-  # Django expects a database user named 'postgres'
-  username               = "postgres"
-  password               = var.rds_password
   db_subnet_group_name   = aws_db_subnet_group.rds.id
   vpc_security_group_ids = [
     aws_security_group.rds.id
   ]
+
+  # Instance class and configuration
+  allocated_storage      = tonumber(var.rds_config.allocated_storage)
+  engine                 = var.rds_config.engine
+  engine_version         = tostring(var.rds_config.engine_version)
+  instance_class         = var.rds_config.instance_class
   skip_final_snapshot = tobool(var.rds_config.skip_final_snapshot)
+
+  # DB connection configuration
+  db_name                = var.rds_config.db_name
+  username               = var.rds_user
+  password               = var.rds_password
+
   tags                = {
     deployment_id = var.deploy_id
     project       = var.app.name

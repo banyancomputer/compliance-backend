@@ -160,24 +160,41 @@ resource "aws_eip" "ec2" {
   instance = aws_instance.ec2.id
   vpc      = true
 
+  tags = {
+    project       = var.app.name
+    deployment_id = var.deploy_id
+    Name          = join("-", [var.app.name, "ec2-eip"])
+  }
+}
+
+resource "null_resource" "ec2" {
+  triggers = {
+    app_version = var.app.version
+  }
+
   # Provision Our services with Ansible
   provisioner "local-exec" {
     command = <<-EOT
       export ANSIBLE_HOST_KEY_CHECKING=False
       ansible-playbook \
-        -i ${self.public_dns}, \
+        -i ${aws_eip.ec2.public_dns}, \
         -u ec2-user \
         --private-key ~/.ssh/${var.app.name}-ec2-key.pem \
         --extra-vars "app=${var.app.name}" \
+        --extra-vars "app_version=${var.app.version}" \
         --extra-vars "aws_region=${var.aws_region}" \
         --extra-vars "aws_account_id=${data.aws_caller_identity.current.account_id}" \
+        --extra-vars "django_debug=${var.django_env.debug}" \
+        --extra-vars "django_secret_key=${var.django_env.secret_key}" \
+        --extra-vars "django_allowed_hosts=${var.django_env.allowed_hosts}" \
+        --extra-vars "django_sql_engine=${var.django_env.sql_engine}" \
+        --extra-vars "django_sql_database=${var.rds_config.engine}" \
+        --extra-vars "django_sql_user=${var.rds_user}" \
+        --extra-vars "django_sql_password=${var.rds_password}" \
+        --extra-vars "django_sql_host=${split(":", aws_db_instance.rds.endpoint)[0]}" \
+        --extra-vars "django_sql_port=${split(":", aws_db_instance.rds.endpoint)[1]}" \
+        --extra-vars "django_database_type=${var.rds_config.engine}" \
         ${var.ec2_config.ansible_playbook}
     EOT
-  }
-
-  tags = {
-    project       = var.app.name
-    deployment_id = var.deploy_id
-    Name          = join("-", [var.app.name, "ec2-eip"])
   }
 }
