@@ -16,22 +16,27 @@ resource "aws_security_group" "rds" {
   name        = join("-", [var.app.name, "rds-sg", var.deploy_id])
   description = "Security Group for our RDS instance"
   vpc_id      = aws_vpc.vpc.id
-  # Allow inbound traffic from the RDS instance
+
+  # Allow inbound traffic from the VPC to PostgreSQL port
   ingress {
     from_port   = 5432
     to_port     = 5432
     protocol    = "tcp"
     description = "PostgreSQL"
-    security_groups = [aws_security_group.ec2.id]
+    cidr_blocks = [
+      aws_vpc.vpc.cidr_block
+    ]
   }
 
-  # Allow all outbound traffic.
+  # Allow egress to PostgreSQL port inside the VPC
   egress {
     from_port   = 5432
     to_port     = 5432
     protocol    = "tcp"
     description = "PostgreSQL"
-    security_groups = [aws_security_group.ec2.id]
+    cidr_blocks = [
+      aws_vpc.vpc.cidr_block
+    ]
   }
 
   tags = {

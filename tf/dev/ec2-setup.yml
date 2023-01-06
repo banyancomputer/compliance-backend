@@ -33,44 +33,16 @@
       register: ecr_login
     - name: Pull Estuary from ECR
       community.docker.docker_image:
-        name: "{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/{{ app }}-ecr:latest"
+        name: "public.ecr.aws/jg/hello:latest"
         source: pull
-    - name: Install the Rexray Docker Plugin
-      community.docker.docker_plugin:
-        plugin_name: rexray/ebs
-        state: present
-    - name: Enable the Rexray Docker Plugin
-      community.docker.docker_plugin:
-          plugin_name: rexray/ebs
-          state: enable
-    - name: Create a Docker Volume for the App with Rexray
-      docker_volume:
-        name: "{{ app }}-volume"
-        driver: rexray/ebs
-        driver_options:
-          size: "{{ ebs_size }}"
-          volumeType: "{{ ebs_type }}"
-        state: present
-        timeout: 300
-      register: "app_volume_create"
     - name: Run App Container
       docker_container:
         name: estuary
-        image: "{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/{{ app }}-ecr:latest"
+        image: "public.ecr.aws/jg/hello:latest"
         state: started
         restart_policy: always
-        env:
-          API_HOSTNAME: "{{ api_hostname }}"
-          WWW_HOSTNAME: "{{ www_hostname }}"
-          FULLNODE_API: "{{ fullnode_api }}"
-          DB_TYPE: "{{ db_type }}"
-          DB_ENDPOINT: "{{ db_endpoint }}"
-          DB_NAME: "{{ db_name }}"
-          VOLUME_DIR: "{{ ebs_mount_dir }}"
         ports:
-          - "80:{{ api_port }}"
-        volumes:
-          - "{{ app }}-volume:{{ ebs_mount_dir }}"
-        command: [ "/app/start.sh", "{{ db_username }}", "{{ db_password }}" ]
+          - "80:80"
+        command: [ ]
       register: "app_container_run"
 

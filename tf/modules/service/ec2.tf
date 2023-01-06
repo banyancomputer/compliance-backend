@@ -7,17 +7,45 @@ resource "aws_security_group" "ec2" {
   vpc_id      = aws_vpc.vpc.id
 
   # TODO - restrict to only whatever API Gateway needs
+  # RDS
   ingress {
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [
+      aws_security_group.rds.id
+    ]
+  }
+  # SSH
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    description = "ssh"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  # HTTP
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    description = "HTTP"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  # HTTPS
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    description = "HTTPS"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  # Allow all outbound traffic.
+  egress {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    from_port = 0
-    protocol  = ""
-    to_port   = 0
   }
 
   tags = {
@@ -101,8 +129,8 @@ data "aws_ami" "ec2" {
   owners      = ["amazon"]
   filter {
     name   = "name"
-    # We want something with hardware virtualization support, on x86_64, using gp3 storage
-    values = ["amzn2-ami-hvm-*-x86_64-gp3"]
+    # We want something with hardware virtualization support, on x86_64, using gp2 storage
+    values = ["amzn2-ami-hvm-*-x86_64-gp2"]
   }
 }
 # (Finally) The EC2 Instance itself
@@ -134,7 +162,17 @@ resource "aws_eip" "ec2" {
 
   # Provision Our services with Ansible
   provisioner "local-exec" {
-    command = var.ec2_config.provisioner_command
+    command = <<-EOT
+      export ANSIBLE_HOST_KEY_CHECKING=False
+      ansible-playbook \
+        -i ${self.public_dns}, \
+        -u ec2-user \
+        --private-key ~/.ssh/${var.app.name}-ec2-key.pem \
+        --extra-vars "app=${var.app.name}" \
+        --extra-vars "aws_region=${var.aws_region}" \
+        --extra-vars "aws_account_id=${data.aws_caller_identity.current.account_id}" \
+        ${var.ec2_config.ansible_playbook}
+    EOT
   }
 
   tags = {

@@ -1,5 +1,8 @@
 /* vpc.tf: Configuration for the VPC and networking infrastructure our service needs */
 
+# Who's the owner of this infrastructure?
+data "aws_caller_identity" "current" {}
+
 # Available Availability Zones
 data "aws_availability_zones" "available" {
   state = "available"

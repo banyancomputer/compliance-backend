@@ -58,9 +58,9 @@ variable "ec2_config" {
   default     = {
     instance_type       = "t3.micro"
     monitoring          = "true"
-    volume_type         = "gp3"
+    volume_type         = "gp2"
     volume_size         = "20" # in GB. The Size needed for the AMI
-    provisioner_command = "echo 'Hello World'"
+    ansible_playbook    = "./ec2-setup.yml"
   }
 }
 # The key for our RDS database
