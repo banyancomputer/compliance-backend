@@ -17,3 +17,7 @@ variable "app" {
     version      = "0.0.1" # The version of the application
   }
 }
+variable "rds_password" {
+  type = string
+  default = "CHANGEME"
+}

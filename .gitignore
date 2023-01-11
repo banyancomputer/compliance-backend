@@ -1,2 +1,10 @@
 .idea
 */secrets.tfvars
+build/compliance-django-app
+**/compliance-django-ec2-provision.sh
+# Terraform state files
+**/.tfstate
+**/.tfstate.*
+# Local .terraform directories
+**/.terraform/
+

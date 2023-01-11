@@ -1,7 +1,3 @@
-# Endpoint for the API
-output "api_endpoint" {
-  value = aws_api_gateway_deployment.api_gateway.invoke_url
-}
 # Endpoint for the Ec2 instance
 output "ec2_endpoint" {
   description = "The public DNS name of the EC2 instance"

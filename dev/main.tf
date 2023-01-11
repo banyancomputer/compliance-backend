@@ -10,7 +10,12 @@ terraform {
   }
   required_version = "~> 1.3.0"
 
-  # TODO: Add remote state
+  # Our Remote State for Terraform on AWS
+  backend "s3" {
+      bucket = "banyan-tf-remote-state"
+      key    = "compliance/dev/terraform.tfstate"
+      region = "us-east-2"
+  }
 }
 
 # Provider Configuration
@@ -28,15 +33,12 @@ module "service" {
   app = {
     name = "compliance-django"
     stage = "dev"
-    version = "0.0.3"
+    version = "1"
     ecr_url = "288251279596.dkr.ecr.us-east-2.amazonaws.com/compliance-django-ecr"
   }
   # Default VPC config is fine for now
 
   # Default RDS is fine for Dev
 
-  # TODO - Remember to add ansible command for provisioning the ec2 instance
-
-  rds_user = "compliance"
-  rds_password = "changeme"
+  rds_password = var.rds_password
 }

@@ -44,9 +44,13 @@ variable "django_env" {
   type        = map(string)
   default     = {
     secret_key    = "secret_key"
-    debug         = "True"
+    debug         = "1"
     allowed_hosts = "*"
     sql_engine    = "django.db.backends.postgresql"
+    superuser_username = "admin"
+    superuser_password = "admin"
+    superuser_email = "alex@banyan.computer"
+    use_s3 = "TRUE"
   }
 }
 # The settings for our RDS database
@@ -73,7 +77,7 @@ variable "ec2_config" {
     monitoring       = "true"
     volume_type      = "gp2"
     volume_size      = "20" # in GB. The Size needed for the AMI
-    ansible_playbook = "ec2-setup.yml"
+    ansible_playbook = "./ansible/ec2-setup.yml"
   }
 }
 # The user for our RDS database

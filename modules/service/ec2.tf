@@ -117,6 +117,11 @@ resource "aws_iam_role_policy" "ec2" {
           "ecr:GetAuthorizationToken",
           "ecr:GetDownloadUrlForLayer",
           "ecr:BatchGetImage",
+          # Allows our Ec2 instance to read and write to S3
+          "s3:ListBucket",
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject",
         ],
         Resource : "*"
       }
@@ -166,35 +171,64 @@ resource "aws_eip" "ec2" {
     Name          = join("-", [var.app.name, "ec2-eip"])
   }
 }
-
+# Create a script to provision the EC2 instance
+resource "null_resource" "local-script" {
+  # Is trigger whenever:
+  #  - the service uses a different image
+  #  - any configuration changes in ./ansible/* or ../build/docker/*
+  triggers = {
+    app_version = var.app.version
+    ec2_ami     = data.aws_ami.ec2.id
+    ansible_hash = filemd5(var.ec2_config.ansible_playbook)
+  }
+    # Create the script
+  provisioner "local-exec" {
+    command = <<-EOT
+      echo ' \
+        export ANSIBLE_HOST_KEY_CHECKING=False
+        ansible-playbook \
+          -i ${aws_eip.ec2.public_dns}, \
+          -u ec2-user \
+          --private-key ~/.ssh/${var.app.name}-ec2-key.pem \
+          --extra-vars "app=${var.app.name}" \
+          --extra-vars "app_version=${var.app.version}" \
+          --extra-vars "aws_region=${var.aws_region}" \
+          --extra-vars "aws_account_id=${data.aws_caller_identity.current.account_id}" \
+          --extra-vars "django_debug=${var.django_env.debug}" \
+          --extra-vars "django_secret_key=${var.django_env.secret_key}" \
+          --extra-vars "django_allowed_hosts=${var.django_env.allowed_hosts}" \
+          --extra-vars "django_sql_engine=${var.django_env.sql_engine}" \
+          --extra-vars "django_superuser_username=${var.django_env.superuser_username}" \
+          --extra-vars "django_superuser_password=${var.django_env.superuser_password}" \
+          --extra-vars "django_superuser_email=${var.django_env.superuser_email}" \
+          --extra-vars "django_use_s3=${var.django_env.use_s3}" \
+          --extra-vars "django_aws_cert_bucket_name=${aws_s3_bucket.cert.id}" \
+          --extra-vars "django_aws_cert_bucket_region=${var.aws_region}" \
+          --extra-vars "django_sql_database=${var.rds_config.engine}" \
+          --extra-vars "django_sql_user=${var.rds_user}" \
+          --extra-vars "django_sql_password=${var.rds_password}" \
+          --extra-vars "django_sql_host=${split(":", aws_db_instance.rds.endpoint)[0]}" \
+          --extra-vars "django_sql_port=${split(":", aws_db_instance.rds.endpoint)[1]}" \
+          ${var.ec2_config.ansible_playbook}
+      ' > ${var.app.name}-ec2-provision.sh
+      chmod +x ${var.app.name}-ec2-provision.sh
+    EOT
+  }
+}
+# Provision the EC2 instance. Saves the command to a file, and executes it
 resource "null_resource" "ec2" {
   triggers = {
     app_version = var.app.version
+    ansible_hash = filemd5(var.ec2_config.ansible_playbook)
+    script_hash = filemd5("${var.app.name}-ec2-provision.sh")
   }
 
-  # Provision Our services with Ansible
+  # Echo the configured provisioning command into a .sh
+  # Make the command executable
+  # Execute the command
   provisioner "local-exec" {
     command = <<-EOT
-      export ANSIBLE_HOST_KEY_CHECKING=False
-      ansible-playbook \
-        -i ${aws_eip.ec2.public_dns}, \
-        -u ec2-user \
-        --private-key ~/.ssh/${var.app.name}-ec2-key.pem \
-        --extra-vars "app=${var.app.name}" \
-        --extra-vars "app_version=${var.app.version}" \
-        --extra-vars "aws_region=${var.aws_region}" \
-        --extra-vars "aws_account_id=${data.aws_caller_identity.current.account_id}" \
-        --extra-vars "django_debug=${var.django_env.debug}" \
-        --extra-vars "django_secret_key=${var.django_env.secret_key}" \
-        --extra-vars "django_allowed_hosts=${var.django_env.allowed_hosts}" \
-        --extra-vars "django_sql_engine=${var.django_env.sql_engine}" \
-        --extra-vars "django_sql_database=${var.rds_config.engine}" \
-        --extra-vars "django_sql_user=${var.rds_user}" \
-        --extra-vars "django_sql_password=${var.rds_password}" \
-        --extra-vars "django_sql_host=${split(":", aws_db_instance.rds.endpoint)[0]}" \
-        --extra-vars "django_sql_port=${split(":", aws_db_instance.rds.endpoint)[1]}" \
-        --extra-vars "django_database_type=${var.rds_config.engine}" \
-        ${var.ec2_config.ansible_playbook}
+      ./${var.app.name}-ec2-provision.sh
     EOT
   }
 }
