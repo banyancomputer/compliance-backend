@@ -1,0 +1,35 @@
+# image-ecr-push.yml: Build a Docker image in `../docker`, tag with the current version, and push it to ECR.
+# Usage:
+# ansible-playbook \
+# -e aws_account_id=123456789012 \ # AWS account ID for ECR
+# -e aws_region=us-east-1 \ # AWS region for ECR
+# -e app_name=app \ # Name of the application we want to push
+# -e app_version=1.0.0 \ # Version of the application we want to push
+# /path/to/image-ecr-push.yml
+- name: Build and Push our Server Image
+  hosts: localhost
+  connection: localhost
+  tasks:
+    - name: Get ECR Login
+      shell: aws ecr get-login-password --region {{ aws_region }} | docker login --username AWS --password-stdin {{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com
+      register: ecr_login
+    - name: Pull the latest version of the django app's repo
+      git:
+        repo: https://github.com/banyancomputer/compliance-django-app.git
+        dest: ../docker/compliance-django-app
+        version: main
+        clone: yes
+    - name: Build the image
+      command:
+        chdir: ../docker
+        cmd: docker buildx build --file Dockerfile --platform=linux/amd64 -t  {{ app_name }}-ecr .
+      register: image_build
+    - name: Tag the image with the version
+      command: docker tag {{ app_name }}-ecr:latest {{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/{{ app_name }}-ecr:{{ app_version }}
+      register: image_tag
+    - name: Push Image to ECR
+      command:
+        cmd: docker push {{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/{{ app_name }}-ecr:{{ app_version }}
+      register: image_push
+      until: image_push is succeeded
+
