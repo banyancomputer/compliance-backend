@@ -1,6 +1,6 @@
 # Run migrations and collect static files
-echo "Running Flush.."
-python manage.py flush --no-input
+#echo "Running Flush.."
+#python manage.py flush --no-input
 echo "Running Make Migrations.."
 python manage.py makemigrations
 echo "Running Migrate.."

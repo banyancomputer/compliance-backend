@@ -15,9 +15,10 @@ resource "aws_vpc" "vpc" {
   # Allow DNS hostnames to be created in the VPC (i.e. allow instances to have hostnames)
   enable_dns_hostnames = true
   tags                 = {
-    deployment_id = var.deploy_id
-    project       = var.app.name
-    Name          = join("-", [var.app.name, "vpc"])
+    deploy_id = var.deploy_id
+    service_name = var.name
+    stage = var.stage
+    name = join("-", [var.name, "vpc"])
   }
 }
 
@@ -25,9 +26,10 @@ resource "aws_vpc" "vpc" {
 resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.vpc.id
   tags   = {
-    deployment_id = var.deploy_id
-    project       = var.app.name
-    Name          = join("-", [var.app.name, "igw"])
+    deploy_id = var.deploy_id
+    service_name = var.name
+    stage = var.stage
+    name = join("-", [var.name, "igw"])
   }
 }
 
@@ -37,9 +39,10 @@ resource "aws_subnet" "public" {
   cidr_block = var.public_subnet_cidr
   availability_zone = data.aws_availability_zones.available.names[0]
   tags = {
-    deployment_id = var.deploy_id
-    project       = var.app.name
-    Name          = join("-", [var.app.name, "public-subnet"])
+    deploy_id = var.deploy_id
+    service_name = var.name
+    stage = var.stage
+    name = join("-", [var.name, "public-subnet"])
   }
 }
 
@@ -51,9 +54,10 @@ resource "aws_subnet" "private" {
   cidr_block        = var.private_subnet_cidrs[count.index]
   availability_zone = data.aws_availability_zones.available.names[count.index]
   tags              = {
-    deployment_id = var.deploy_id
-    project       = var.app.name
-    Name          = join("-", [var.app.name, "private-subnet", count.index])
+    deploy_id = var.deploy_id
+    service_name = var.name
+    stage = var.stage
+    name = join("-", [var.name, "private-subnet", count.index])
   }
 }
 
@@ -66,9 +70,10 @@ resource "aws_route_table" "rt" {
     gateway_id = aws_internet_gateway.igw.id
   }
   tags = {
-    deployment_id = var.deploy_id
-    project       = var.app.name
-    Name          = join("-", [var.app.name, "rt"])
+    deploy_id = var.deploy_id
+    service_name = var.name
+    stage = var.stage
+    name = join("-", [var.name, "rt"])
   }
 }
 

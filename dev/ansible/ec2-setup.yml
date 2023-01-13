@@ -3,10 +3,8 @@
 # See /compliance-backend/build/docker more details on how the Django app is run in a Docker container.
 # useage:
 # ansible-playbook \
-# -e aws_account_id=123456789012 \ # AWS account ID for ECR
-# -e app=app_name \ # Name of the application we want to push
-# -e app_version=1.0.0 \ # Version of the application we want to push
-# -e aws_region=us-east-1 \ # AWS region for ECR
+# -e ecr_url=123456789012.dkr.ecr.us-east-1.amazonaws.com/app-ecr  \ # ECR url where app image is stored
+# -e app_version=1.0.0 \ # Version of the application we want to pull from ECR
 # -e django_debug=True \ # Django debug mode
 # -e django_secret_key=secret \ # Django secret key
 # -e django_allowed_hosts=* \ # Django allowed hosts
@@ -22,6 +20,7 @@
 # -e django_sql_password=postgres \ # Django SQL password
 # -e django_sql_host=postgres \ # Django SQL host
 # -e django_sql_port=5432 \ # Django SQL port
+# /path/to/ec2-setup.yml # Path to this playbook from where you are running it
 - become: yes
   hosts: all
   name: Configure our Ec2 instance to run a Dockerized Django app
@@ -95,21 +94,21 @@
 
     ### Pull and run our Dockerized Django app ###
     - name: Get ECR Login
-      shell: aws ecr get-login-password --region {{ aws_region }} | docker login --username AWS --password-stdin {{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com
+      shell: aws ecr get-login-password --region {{ aws_region }} | docker login --username AWS --password-stdin {{ ecr_url }}
       register: ecr_login
     - name: Pull Django app from ECR
       community.docker.docker_image:
-        name: "{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/{{ app }}-ecr:{{ app_version }}"
+        name: "{{ ecr_url }}:{{ app_version }}"
         source: pull
     - name: Run App Container
       docker_container:
         name: compliance-django
-        image: "{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/{{ app }}-ecr:{{ app_version }}"
+        image: "{{ ecr_url }}:{{ app_version }}"
         state: started
         restart_policy: always
         # Configure Django
         env:
-          DEBUG: "1"
+          DEBUG: "{{ django_debug }}"
           SECRET_KEY: "{{ django_secret_key }}"
           DJANGO_ALLOWED_HOSTS: "{{ django_allowed_hosts }}"
           SQL_ENGINE: "{{ django_sql_engine }}"
@@ -118,7 +117,7 @@
           DJANGO_SUPERUSER_EMAIL: "{{ django_superuser_email }}"
           USE_S3: "{{ django_use_s3 }}"
           AWS_CERT_BUCKET_NAME: "{{ django_aws_cert_bucket_name }}"
-          AWS_CERT_BUCKET_REGION: "{{ django_aws_cert_bucket_region }}"
+          AWS_CERT_BUCKET_REGION: "{{ aws_region }}"
           SQL_DATABASE: "{{ django_sql_database }}"
           SQL_USER: "{{ django_sql_user }}"
           SQL_PASSWORD: "{{ django_sql_password }}"

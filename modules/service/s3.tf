@@ -4,16 +4,18 @@
 
 # Cert bucket
 resource "aws_s3_bucket" "cert" {
-  bucket = join("-", [var.app.name, var.app.stage, "cert", var.deploy_id])
-  tags   = {
-    deploy_id = var.deploy_id
-    project   = var.app.name
-    stage     = var.app.stage
-    Name      = join("-", [var.app.name, "cert-bucket"])
+  bucket        = join("-", [var.name, "cert-bucket", var.stage, var.deploy_id])
+  # Destroy this bucket when destroying the stack if this isn't a production stack
+  force_destroy = var.stage != "prod"
+  tags          = {
+    deploy_id    = var.deploy_id
+    service_name = var.name
+    stage        = var.stage
+    name         = join("-", [var.name, "cert-bucket"])
   }
 }
 
-/* Bucket ACLs */
+/* Bucket Policy */
 
 # Cert bucket is publicly readable
 resource "aws_s3_bucket_policy" "cert" {
