@@ -1,6 +1,5 @@
 from django.contrib import admin
-from .models import Teacher
+from hello_django.models import KnowYourMiner,HITRUST
 
-# Register your models here.
-
-admin.site.register(Teacher)
+admin.site.register(KnowYourMiner)
+admin.site.register(HITRUST)
